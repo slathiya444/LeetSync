@@ -1,5 +1,4 @@
 -- Write your PostgreSQL query statement below
--- Write your PostgreSQL query statement below
 select 
     employee_id,
     (case
