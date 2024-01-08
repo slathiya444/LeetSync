@@ -11,4 +11,3 @@ class Solution:
 
         return max_profit
 
-        
