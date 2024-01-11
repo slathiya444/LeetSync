@@ -3,19 +3,20 @@ class Solution:
         @lru_cache(None)
         def dp(remaining_amount):
             ## base cases
-            if remaining_amount < 0:
-                return -1
             if remaining_amount == 0:
                 return 0
 
+            if remaining_amount < 0:
+                return -1
+
+            res = math.inf
             ## recurance relation
-            res = float('inf')
-            for j in range(len(coins)):
-                remaining = dp(remaining_amount - coins[j])
+            for coin in coins:
+                remaining = dp(remaining_amount - coin)
                 if remaining != -1:
-                    res = min(res, remaining+1)
+                    res =  min(res, 1+remaining)
 
-            return res if res != float('inf') else -1
+            return res if res != math.inf else -1
 
-        return dp(amount)
+        return dp(amount) 
         
