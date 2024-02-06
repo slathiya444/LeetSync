@@ -4,6 +4,7 @@ class Solution:
         for i in strs:
             ss = tuple(sorted(i))
             dd[ss].append(i)
+        
         return dd.values()
         
         
