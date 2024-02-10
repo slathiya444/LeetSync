@@ -1,15 +1,22 @@
 class Solution:
     def wordBreak(self, s: str, wordDict: List[str]) -> bool:
-        dp = [False] * (len(s)+1)
-        dp[len(s)] = True
+        cache = {}
+        def dp(index):
+            ## base cases
+            if index < 0:
+                return True
 
-        for i in range(len(s)-1, -1, -1):
+            if index in cache:
+                return cache[index]
+
+            ## recurance relation
             for word in wordDict:
-                if i+len(word) <= len(s) and s[i:i+len(word)] == word:
-                    dp[i] = dp[i+len(word)]
-                if dp[i]:
-                    break
+                if s[index - len(word) + 1 : index+1] == word and dp(index - len(word)):
+                    cache[index] = True
+                    return True
+            cache[index] = False
+            return False
 
-        return dp[0]
+        return dp(len(s)-1)
 
         
