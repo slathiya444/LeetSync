@@ -1,0 +1,99 @@
+name: Sync Leetcode with Dynamic Folders
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 6" # Runs at 8:00 AM every Saturday
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Sync LeetCode submissions
+        env:
+          LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
+          LEETCODE_CSRF_TOKEN: ${{ secrets.LEETCODE_CSRF_TOKEN }}
+        run: |
+          python - <<EOF
+          import os
+          import requests
+          from datetime import datetime
+          import json
+
+          DUMP_FOLDER = 'leetcode_sync_dump'
+          LAST_SYNC_FILE = os.path.join(DUMP_FOLDER, '.last_sync')
+
+          def fetch_submissions(last_timestamp):
+              url = "https://leetcode.com/api/submissions/"
+              headers = {
+                  "X-CSRFToken": os.environ["LEETCODE_CSRF_TOKEN"],
+                  "Cookie": f"LEETCODE_SESSION={os.environ['LEETCODE_SESSION']}; csrftoken={os.environ['LEETCODE_CSRF_TOKEN']}"
+              }
+              params = {"offset": 0, "limit": 20}
+              all_submissions = []
+              
+              while True:
+                  response = requests.get(url, headers=headers, params=params)
+                  submissions = response.json()["submissions_dump"]
+                  if not submissions:
+                      break
+                  
+                  for submission in submissions:
+                      if submission["timestamp"] <= last_timestamp:
+                          return all_submissions
+                      all_submissions.append(submission)
+                  
+                  params["offset"] += params["limit"]
+              
+              return all_submissions
+
+          def save_submission(submission):
+              date = datetime.fromtimestamp(submission["timestamp"])
+              folder = f"{date.year}/{date.strftime('%B').lower()}"
+              os.makedirs(folder, exist_ok=True)
+              
+              filename = f"{folder}/{submission['title'].replace(' ', '_')}.{submission['lang']}"
+              with open(filename, "w") as f:
+                  f.write(submission["code"])
+              return submission["timestamp"]
+
+          def get_last_sync_timestamp():
+              if os.path.exists(LAST_SYNC_FILE):
+                  with open(LAST_SYNC_FILE, 'r') as f:
+                      return int(f.read().strip())
+              return 0
+
+          def save_last_sync_timestamp(timestamp):
+              os.makedirs(DUMP_FOLDER, exist_ok=True)
+              with open(LAST_SYNC_FILE, 'w') as f:
+                  f.write(str(timestamp))
+
+          last_sync = get_last_sync_timestamp()
+          submissions = fetch_submissions(last_sync)
+          latest_timestamp = last_sync
+
+          for submission in submissions:
+              timestamp = save_submission(submission)
+              latest_timestamp = max(latest_timestamp, timestamp)
+
+          save_last_sync_timestamp(latest_timestamp)
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "[LeetCode Sync] Update submissions" && git push)
